@@ -18,10 +18,13 @@
 
 ```bash
 # Перейдите в каталог с бэкендом
-cd backend/app/
+cd backend/
 
 # Установите Python-зависимости
 pip install -r requirements.txt
+
+# Перейдите в директрию приложения
+cd app 
 
 # Запустите сервер в режиме разработки
 uvicorn main:app --reload
