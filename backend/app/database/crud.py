@@ -9,7 +9,7 @@ from schemas import PartCreate, PartUpdate
 
 
 
-def create_part(db: Session, existing_part: PartCreate):
+def create_part(db: Session, new_part: PartCreate):
     """
     Создать новую деталь в базе данных.
 
@@ -26,14 +26,14 @@ def create_part(db: Session, existing_part: PartCreate):
     """
 
     existing_part = db.query(Part).filter(
-        func.lower(Part.name) == existing_part.name.lower(),
-        Part.parent_id == existing_part.parent_id
+        func.lower(Part.name) == new_part.name.lower(),
+        Part.parent_id == new_part.parent_id
     ).first()
     if existing_part:
         return DeletePartResult.EXISTS 
     
     try: 
-        db_part = Part(**existing_part.model_dump())
+        db_part = Part(**new_part.model_dump())
         db_part.name = db_part.name.capitalize()
         db.add(db_part)
         db.commit()

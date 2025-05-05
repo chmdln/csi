@@ -65,9 +65,9 @@ const AddPartForm: React.FC<AddPartFormProps> = ({ setParts }) => {
       <input 
         className="mb-4 mr-2 px-4 py-2 border-1 border-stone-400" 
         type="number" 
-        placeholder="Цена" 
         value={unitPrice} 
         min="0"
+        placeholder="Цена" 
         onChange={(e) => setUnitPrice(e.target.value)} 
         required 
       />

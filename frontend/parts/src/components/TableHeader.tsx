@@ -7,7 +7,7 @@ const TableHeader: React.FC = () => {
             <div className="w-24  p-2">Цена</div>
             <div className="w-28  p-2">Количество</div>
             <div className="w-32  p-2">Стоимость</div>
-            <div className="w-60  p-2">Действия</div>
+            <div className="w-90  p-2">Действия</div>
         </div>
     );
 }
