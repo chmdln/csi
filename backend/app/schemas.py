@@ -10,6 +10,13 @@ class PartBase(BaseModel):
 class PartCreate(PartBase):
     pass 
 
+class PartUpdate(BaseModel):
+    name: Optional[str] = None
+    unit_price: Optional[int] = None
+    quantity: Optional[int] = None
+    parent_id: Optional[int] = None
+
+
 class PartOut(PartBase):
     id: int
     total_price: int

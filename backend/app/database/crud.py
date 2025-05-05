@@ -5,11 +5,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from utils import update_parent_prices
 from enums import DeletePartResult
 from .models import Part
-from schemas import PartCreate
+from schemas import PartCreate, PartUpdate
 
 
 
-def create_part(db: Session, part: PartCreate):
+def create_part(db: Session, existing_part: PartCreate):
     """
     Создать новую деталь в базе данных.
 
@@ -18,7 +18,7 @@ def create_part(db: Session, part: PartCreate):
 
     Аргументы:
         db (Session): Сессия базы данных для выполнения операций.
-        part (PartCreate): Данные создаваемой детали
+        existing_part (PartCreate): Данные создаваемой детали
 
     Возвращает:
         Part: Объект созданной детали при успешном сохранении.
@@ -26,14 +26,14 @@ def create_part(db: Session, part: PartCreate):
     """
 
     existing_part = db.query(Part).filter(
-        func.lower(Part.name) == part.name.lower(),
-        Part.parent_id == part.parent_id
+        func.lower(Part.name) == existing_part.name.lower(),
+        Part.parent_id == existing_part.parent_id
     ).first()
     if existing_part:
         return DeletePartResult.EXISTS 
     
     try: 
-        db_part = Part(**part.model_dump())
+        db_part = Part(**existing_part.model_dump())
         db_part.name = db_part.name.capitalize()
         db.add(db_part)
         db.commit()
@@ -45,6 +45,47 @@ def create_part(db: Session, part: PartCreate):
     except SQLAlchemyError as e:
         db.rollback()  
         raise e  
+    
+
+
+
+def edit_part(db: Session, part_id: int, part_update: PartUpdate):
+    """
+    Редактировать существующую деталь.
+
+    Проверяет наличие детали. Если деталь найдена — обновляет указанные поля,
+    сохраняет изменения и обновляет цены родительской детали (если нужно).
+
+    Аргументы:
+        db (Session): Сессия базы данных.
+        part_id (int): Идентификатор детали для обновления.
+        part_update (PartUpdate): Данные для обновления.
+
+    Возвращает:
+        Part: Обновлённый объект детали.
+        None: Если деталь не найдена.
+    """
+    existing_part = db.query(Part).get(part_id)
+    if not existing_part:
+        return DeletePartResult.NOT_FOUND
+
+    for field, value in part_update.model_dump(exclude_unset=True).items():
+        setattr(existing_part, field, value)
+
+    if part_update.name is not None:
+        existing_part.name = existing_part.name.capitalize()
+
+    try:
+        db.commit()
+        db.refresh(existing_part)
+
+        if existing_part.parent_id:
+            update_parent_prices(db, existing_part.parent_id)
+        return existing_part
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise e
+
 
 
 def delete_part(db: Session, part_id: int):
@@ -62,15 +103,15 @@ def delete_part(db: Session, part_id: int):
     Возвращает:
         DeletePartResult: Результат удаления (успех, не найдено, есть дочерние элементы).
     """
-    part = db.query(Part).get(part_id)
-    if not part:
+    existing_part = db.query(Part).get(part_id)
+    if not existing_part:
         return DeletePartResult.NOT_FOUND
-    if part.children:
+    if existing_part.children:
         return DeletePartResult.HAS_CHILDREN
 
     try:
-        parent_id = part.parent_id
-        db.delete(part)
+        parent_id = existing_part.parent_id
+        db.delete(existing_part)
         db.commit()
         if parent_id:
             update_parent_prices(db, parent_id)
@@ -95,13 +136,13 @@ def get_tree(db: Session):
     """
     try: 
         root_parts = db.query(Part).filter(Part.parent_id == None).all()
-        return [build_tree(part) for part in root_parts]
+        return [build_tree(existing_part) for existing_part in root_parts]
     except SQLAlchemyError as e:
         db.rollback()
         raise e
 
 
-def build_tree(part):
+def build_tree(existing_part):
     """
     Построить рекурсивное дерево детали.
 
@@ -109,20 +150,20 @@ def build_tree(part):
     в виде вложенного словаря.
 
     Аргументы:
-        part (Part): Экземпляр детали.
+        existing_part (Part): Экземпляр детали.
 
     Возвращает:
         dict: Словарь с данными детали и её потомков.
     """
-    total = part.unit_price * part.quantity
-    children = [build_tree(child) for child in part.children]
+    total = existing_part.unit_price * existing_part.quantity
+    children = [build_tree(child) for child in existing_part.children]
 
     return {
-        "id": part.id,
-        "name": part.name,
-        "unit_price": part.unit_price,
-        "quantity": part.quantity,
-        "parent_id": part.parent_id,
+        "id": existing_part.id,
+        "name": existing_part.name,
+        "unit_price": existing_part.unit_price,
+        "quantity": existing_part.quantity,
+        "parent_id": existing_part.parent_id,
         "total_price": total,
         "children": children
     }

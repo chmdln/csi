@@ -20,7 +20,8 @@ from database import crud
 from database.database import get_db
 from schemas import (
     PartCreate,
-    PartOut
+    PartOut, 
+    PartUpdate
 )
 
 
@@ -93,6 +94,51 @@ def create_part(part: PartCreate, db: Session = Depends(get_db)):
             total_price=total_price,
             children=[]
         ) 
+
+
+
+
+@router.put("/{part_id}", status_code=status.HTTP_200_OK, response_model=PartOut)
+def edit_part(part_id: int, part_update: PartUpdate, db: Session = Depends(get_db)):
+    """
+    Редактировать существующую деталь.
+
+    Этот эндпоинт позволяет обновить одну или несколько характеристик детали.
+    Если деталь не найдена, возвращает 404.
+
+    Аргументы:
+        part_id (int): Идентификатор детали.
+        part_update (PartUpdate): Данные для обновления.
+        db (Session): Сессия базы данных.
+
+    Возвращает:
+        PartOut: Обновлённая деталь.
+    """
+    try:
+        updated_part = crud.edit_part(db, part_id, part_update)
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка сервера при редактировании детали"
+        )
+    
+    if updated_part == DeletePartResult.NOT_FOUND:
+        raise HTTPException(
+            status_code=404,
+            detail="Деталь не найдена"
+        )
+    
+    total_price = updated_part.unit_price * updated_part.quantity
+    return PartOut(
+        id=updated_part.id,
+        name=updated_part.name,
+        unit_price=updated_part.unit_price,
+        quantity=updated_part.quantity,
+        parent_id=updated_part.parent_id,
+        total_price=total_price,
+        children=[]
+    )
+
 
 
 @router.delete("/{part_id}", status_code=status.HTTP_204_NO_CONTENT)
